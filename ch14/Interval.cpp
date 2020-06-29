@@ -114,10 +114,12 @@ void Interval::print() {
 				if (vec[i] -> color == Color::BLACK) out += "B"s;
 				else out += "R"s;
 			}
-
-			for (auto k = 0; k < w - out.length() / 2; ++k) cout << " ";
+			
+			cout << "'";
+			for (auto k = 1; k < w - out.length() / 2; ++k) cout << " ";
 			cout << out;
-			for (auto k = 0; k < w - out.length() / 2; ++k) cout << " ";
+			for (auto k = 1; k < w - out.length() / 2; ++k) cout << " ";
+			cout << "'";
 		}
 		cout << endl;
 	}
