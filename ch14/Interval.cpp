@@ -165,17 +165,20 @@ void Interval::deletee(int low, int high) {
 		y = minimum(z -> right);
 		y_original_color = y -> color;
 		x = y -> right;
-		if (y -> p != z) {
+
+		if (y -> p == z)
+			x -> p = y;
+		else {
 			transplant(y, x);
-			update_max(x -> p);
 			y -> right = z -> right;
 			y -> right -> p = y;
 		}
+
 		transplant(z, y);
 		y -> left = z -> left;
 		y -> left -> p = y;
 		y -> color = z -> color;
-		update_max(y);
+		update_max(x -> p);
 	}
 	delete z;
 	if (y_original_color == Color::BLACK)

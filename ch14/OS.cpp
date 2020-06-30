@@ -163,7 +163,9 @@ void OS::deletee(int k) {
 		y = minimum(z -> right);
 		y_original_color = y -> color;
 		x = y -> right;
-		if (y -> p != z) {
+		if (y -> p == z)
+			x -> p = y;
+		else {
 			transplant(y, x);
 			y -> right = z -> right;
 			y -> right -> p = y;
