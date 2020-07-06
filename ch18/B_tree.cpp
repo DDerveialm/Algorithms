@@ -106,17 +106,18 @@ void B_tree::deletee(int k) {
 					//cout << "case 3b - 1" << endl;
 					--i;
 					merge(x, i);
+					y = x -> child[i];
 				} else if (s2) {
 					//cout << "case 3b - 2" << endl;
 					merge(x, i);
 				}
 			}
-			auto last_x = x;
-			x = x -> child[i];
-			if (last_x == root && last_x -> key.size() == 0) { // happen only in 3b
-				root = x;
-				delete last_x;
+			if (x == root && x -> key.size() == 0) { // happen only in 3b
+				//cout << "change root in 3b" << endl;
+				root = y;
+				delete x;
 			}
+			x = y;
 		} else {
 			auto y = x -> child[i];
 			auto z = x -> child[i + 1];
@@ -138,6 +139,11 @@ void B_tree::deletee(int k) {
 				//cout << "case 2c" << endl;
 				auto median = x -> key[i];
 				merge(x, i);
+				if (x == root && x -> key.size() == 0) {
+					//cout << "change root in 2c" << endl;
+					root = y;
+					delete x;
+				}
 				x = y;
 				k = median;
 			}	
