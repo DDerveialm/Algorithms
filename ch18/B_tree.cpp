@@ -5,10 +5,29 @@
 
 using namespace std;
 
+class Data {
+public:
+	bool operator> (const Data&) const;
+	bool operator< (const Data&) const;
+	bool operator== (const Data&) const;
+	bool operator!= (const Data&) const;
+	int key;
+	string value;
+};
+
+bool Data::operator> (const Data& d) const {return key > d.key;}
+bool Data::operator< (const Data& d) const {return key < d.key;}
+bool Data::operator== (const Data& d) const {return key == d.key;}
+bool Data::operator!= (const Data& d) const {return key != d.key;}
+
+bool operator> (const int& key, const Data& d) {return key > d.key;}
+bool operator< (const int& key, const Data& d) {return key < d.key;}
+bool operator== (const int& key, const Data& d) {return key == d.key;}
+bool operator!= (const int& key, const Data& d) {return key != d.key;}
+
 class Node {
 public:
-	vector<int> key;
-	vector<string> data;
+	vector<Data> data;
 	vector<Node*> child;
 	bool is_leaf;
 };
@@ -16,9 +35,9 @@ public:
 class B_tree {
 public:
 	B_tree(int);
-	void insert(int, string);
-	void deletee(int);
-	pair<Node*, int> search(int);
+	bool insert(int, string);
+	bool deletee(int);
+	pair<bool, const Data&> search(int);
 	void print();
 private:
 	Node* root;
@@ -37,8 +56,9 @@ B_tree::B_tree(int t = 2) : t(t) {
 	disk_write(root);
 }
 
-void B_tree::insert(int k, string d) {
-	if (root -> key.size() == 2 * t - 1) {
+bool B_tree::insert(int k, string d) {
+	Data inserted = {k, d};
+	if (root -> data.size() == 2 * t - 1) {
 		auto s = new Node();
 		s -> is_leaf = false;
 		s -> child.push_back(root);
@@ -48,58 +68,53 @@ void B_tree::insert(int k, string d) {
 	auto x = root;
 	while(!x -> is_leaf) {
 		int i = 0;
-		while(i < x -> key.size() && k >= x -> key[i])
+		while(i < x -> data.size() && inserted > x -> data[i])
 			++i;
+		if (i < x -> data.size() && inserted == x -> data[i]) return false; // insert with existing key
 		disk_read(x -> child[i]);
-		if (x -> child[i] -> key.size() == 2 * t - 1) {
+		if (x -> child[i] -> data.size() == 2 * t - 1) {
 			split_child(x, i);
-			if (k >= x -> key[i]) ++i;
+			if (inserted > x -> data[i]) ++i;
 		}
 		x = x -> child[i];
 	}
-	int i = x -> key.size() - 1;
-	x -> key.push_back(int{});
-	x -> data.push_back(string{});
-	while(i >= 0 && k < x -> key[i]) {
-		x -> key[i + 1] = x -> key[i];
+	for (int i = 0; i < x -> data.size(); ++i)
+		if (inserted == x -> data[i]) return false; // insert with existing key
+	int i = x -> data.size() - 1;
+	x -> data.push_back(Data{});
+	while(i >= 0 && inserted < x -> data[i]) {
 		x -> data[i + 1] = x -> data[i];
 		--i;
 	}
 	++i;
-	x -> key[i] = k;
-	x -> data[i] = d;
+	x -> data[i] = inserted;
 	disk_write(x);
+	return true;
 }
 
-void B_tree::deletee(int k) {
+bool B_tree::deletee(int key) {
 	auto x = root;
 	while (!x -> is_leaf) {
 		int i = 0;
-		while(i < x -> key.size() && k > x -> key[i]) ++i;
-		if (i == x -> key.size() || k < x -> key[i]) {
+		while(i < x -> data.size() && key > x -> data[i]) ++i;
+		if (i == x -> data.size() || key < x -> data[i]) {
 			auto y = x -> child[i];
-			if (y -> key.size() == t - 1) {
+			if (y -> data.size() == t - 1) {
 				Node *s1 = nullptr, *s2 = nullptr;
 				if (i - 1 >= 0) s1 = x -> child[i - 1];
 				if (i + 1 < x -> child.size()) s2 = x -> child[i + 1];
-				if (s1 && s1 -> key.size() >= t) { // 3a
+				if (s1 && s1 -> data.size() >= t) { // 3a
 					//cout << "case 3a - 1" << endl;
-					y -> key.insert(y -> key.begin(), x -> key[i - 1]);
 					y -> data.insert(y -> data.begin(), x -> data[i - 1]);
 					if (!s1 -> is_leaf) y -> child.insert(y -> child.begin(), s1 -> child.back());
-					x -> key[i - 1] = s1 -> key.back();
 					x -> data[i - 1] = s1 -> data.back();
-					s1 -> key.pop_back();
 					s1 -> data.pop_back();
 					if (!s1 -> is_leaf) s1 -> child.pop_back();
-				} else if (s2 && s2 -> key.size() >= t) {
+				} else if (s2 && s2 -> data.size() >= t) {
 					//cout << "case 3a - 2" << endl;
-					y -> key.push_back(x -> key[i]);
 					y -> data.push_back(x -> data[i]);
 					if (!s2 -> is_leaf) y -> child.push_back(s2 -> child.front());
-					x -> key[i] = s2 -> key.front();
 					x -> data[i] = s2 -> data.front();
-					s2 -> key.erase(s2 -> key.begin());
 					s2 -> data.erase(s2 -> data.begin());
 					if (!s2 -> is_leaf) s2 -> child.erase(s2 -> child.begin());
 				} else if (s1) { // 3b
@@ -112,7 +127,7 @@ void B_tree::deletee(int k) {
 					merge(x, i);
 				}
 			}
-			if (x == root && x -> key.size() == 0) { // happen only in 3b
+			if (x == root && x -> data.size() == 0) { // happen only in 3b
 				//cout << "change root in 3b" << endl;
 				root = y;
 				delete x;
@@ -121,61 +136,55 @@ void B_tree::deletee(int k) {
 		} else {
 			auto y = x -> child[i];
 			auto z = x -> child[i + 1];
-			if (y -> key.size() >= t) { // 2a // move k' and replace k by k'
+			if (y -> data.size() >= t) { // 2a // move k' and replace k by k'
 				//cout << "case 2a" << endl;
 				auto p = maximum(y); // predecessor
-				x -> key[i] = p.first -> key[p.second];
 				x -> data[i] = p.first -> data[p.second];
 				x = y;
-				k = p.first -> key[p.second];
-			} else if (z -> key.size() >= t) { // 2b
+				key = p.first -> data[p.second].key;
+			} else if (z -> data.size() >= t) { // 2b
 				//cout << "case 2b" << endl;
 				auto s = minimum(z); // successor
-				x -> key[i] = s.first -> key[s.second];
 				x -> data[i] = s.first -> data[s.second];
 				x = z;
-				k = s.first -> key[s.second];
+				key = s.first -> data[s.second].key;
 			} else { // 2c // merge k and z into y
 				//cout << "case 2c" << endl;
-				auto median = x -> key[i];
+				auto median = x -> data[i];
 				merge(x, i);
-				if (x == root && x -> key.size() == 0) {
+				if (x == root && x -> data.size() == 0) {
 					//cout << "change root in 2c" << endl;
 					root = y;
 					delete x;
 				}
 				x = y;
-				k = median;
+				key = median.key;
 			}	
 		}
 	}
 	int i = 0;
-	while(i < x -> key.size() && k > x -> key[i]) ++i;
-	if (k != x -> key[i]) return; // nothing to delete
+	while(i < x -> data.size() && key > x -> data[i]) ++i;
+	if (i >= x -> data.size() || key != x -> data[i]) return false; // nothing to delete
 	//cout << "case 1" << endl;
-	for (int j = i; j < x -> key.size() - 1; ++j) {// 1 // delete from a leaf node
-		x -> key[j] = x -> key[j + 1];
+	for (int j = i; j < x -> data.size() - 1; ++j) // 1 // delete from a leaf node
 		x -> data[j] = x -> data[j + 1];
-	}
-	x -> key.pop_back();
 	x -> data.pop_back();
+	return true;
 }
 
-pair<Node*, int> B_tree::search(int k) {
+pair<bool, const Data&> B_tree::search(int key) {
 	auto x = root;
 	while(true) {
 		int i = 0;
-		while( i < x -> key.size() && k >= x -> key[i]) {
-			if (k == x -> key[i]) return {x, i};
+		while( i < x -> data.size() && key > x -> data[i])
 			++i;
-		}
+		if (i < x -> data.size() && key == x -> data[i]) return {true, x -> data[i]};
 		if (!x -> is_leaf) {
 			x = x -> child[i];
 			disk_read(x);
-		}
-		else break;
+		} else break;
 	}
-	return {nullptr, -1};
+	return {false, Data{}};
 }
 
 void B_tree::print() {
@@ -189,9 +198,9 @@ void B_tree::print() {
 			q.pop();
 			for (int i = 0; i < w; ++i) cout << " ";
 			cout << "'";
-			for (const auto& k : x -> key) {
-				cout << k;
-				if (k != x -> key.back()) cout << " ";
+			for (const auto& d : x -> data) {
+				cout << d.key;
+				if (d != x -> data.back()) cout << " ";
 			}
 			cout << "' ";
 			for (int i = 0; i < w; ++i) cout << " ";
@@ -211,33 +220,21 @@ void B_tree::split_child(Node* x, int i) { // assume x is not full and y is full
 	auto y = x -> child[i];
 	auto z = new Node();
 
-	x -> key.push_back(int{});
-	x -> data.push_back(string{});
-	for (int j = x -> key.size() - 1; j > i; --j) { // move key from [i, end) to [i+1, end+1)
-		x -> key[j] = x -> key[j - 1];
+	x -> data.push_back(Data{});
+	for (int j = x -> data.size() - 1; j > i; --j) // move key from [i, end) to [i+1, end+1)
 		x -> data[j] = x -> data[j - 1];
-	}
-	x -> key[i] = y -> key[t - 1]; // put y's median key in key[i]
-	x -> data[i] = y -> data[t - 1];
+	x -> data[i] = y -> data[t - 1]; // put y's median key in key[i]
 	x -> child.push_back((Node*){});
 	for (int j = x -> child.size() - 1; j > i + 1; --j) // move child from [i+1, end) to [i+2, end)
 		x -> child[j] = x -> child[j - 1];
 	x -> child[i + 1] = z; // put z in child[i+1]
 	
 	z -> is_leaf = y -> is_leaf;
-	auto it = y -> key.begin();
-	advance(it, t - 1);
-	z -> key.assign(next(it), y -> key.end());
-	y -> key.assign(y -> key.begin(), it);
-	auto it2 = y -> data.begin();
-	advance(it2, t - 1);
-	z -> data.assign(next(it2), y -> data.end());
-	y -> data.assign(y -> data.begin(), it2);
+	z -> data.assign(y -> data.begin() + t, y -> data.end());
+	y -> data.assign(y -> data.begin(), y -> data.begin() + t - 1);
 	if (!y -> is_leaf) {
-		auto it = y -> child.begin();
-		advance(it, t);
-		z -> child.assign(it, y -> child.end());
-		y -> child.assign(y -> child.begin(), it);
+		z -> child.assign(y -> child.begin() + t, y -> child.end());
+		y -> child.assign(y -> child.begin(), y -> child.begin() + t);
 	}
 	disk_write(x);
 	disk_write(y);
@@ -249,24 +246,14 @@ void B_tree::merge(Node* x, int i) {
 // assume x has more than (t - 1) keys
 	auto y = x -> child[i];
 	auto z = x -> child[i + 1];
-	y -> key.push_back(x -> key[i]);
 	y -> data.push_back(x -> data[i]);
-	for (const auto& zk : z -> key)
-		y -> key.push_back(zk);
 	for (const auto& zd : z -> data)
 		y -> data.push_back(zd);
 	for (const auto& zc : z -> child)
 		y -> child.push_back(zc);
 	delete(z);
-	auto it = x -> key.begin(); // remove from x
-	advance(it, i);
-	x -> key.erase(it);
-	auto it2 = x -> data.begin();
-	advance(it2, i);
-	x -> data.erase(it2);
-	auto it3 = x -> child.begin();
-	advance(it3, i + 1);
-	x -> child.erase(it3);
+	x -> data.erase(x -> data.begin() + i);
+	x -> child.erase(x -> child.begin() + i + 1);
 }
 
 pair<Node*, int> B_tree::minimum(Node* x) {
@@ -278,7 +265,7 @@ pair<Node*, int> B_tree::minimum(Node* x) {
 pair<Node*, int> B_tree::maximum(Node* x) {
 	while(!x -> is_leaf)
 		x = x -> child.back();
-	return {x, x -> key.size() - 1};
+	return {x, x -> data.size() - 1};
 }
 
 int main() {
@@ -298,7 +285,7 @@ int main() {
 		} else if (op == "SEARCH"s) {
 			cin >> key;
 			auto s = bt.search(key);
-			if (s.first) cout << s.first -> data[s.second];
+			if (s.first) cout << s.second.value;
 		}
 	}
 	cout << endl;
