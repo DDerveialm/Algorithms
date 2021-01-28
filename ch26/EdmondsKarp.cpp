@@ -53,8 +53,8 @@ void FlowNetwork::read() {
 	while (e--) {
 		int u, v, c;
 		cin >> u >> v >> c;
-		G[u].emplace_back(new Edge{v, c});
-		G[v].emplace_back(new Edge{u, 0}); // reverse edge for residual network
+		G[u].push_back(make_shared<Edge>(v, c));
+		G[v].push_back(make_shared<Edge>(u, 0)); // reverse edge for residual network
 		G[u].back() -> addReverseEdge(G[v].back());
 		G[v].back() -> addReverseEdge(G[u].back());
 	}

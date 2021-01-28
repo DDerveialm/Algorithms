@@ -1,5 +1,5 @@
-# Introduction to Algorithms
+# Introduction to Algorithms (CLRS)
 
-#### This is the implementation of "Introduction To Algorithms" with C++.
+#### This is the implementation of "Introduction To Algorithms" in C++.
 
 #### Most code has referenced the concepts in this book.
